@@ -1,8 +1,9 @@
 #include <iostream>
 #include <string>
-#include <clang-c\Index.h>
+#include <map>
+#include <memory>
 
-#include "Header.h"
+#include "cxparse.h"
 
 bool printKindSpelling(CXCursor cursor) 
 {
@@ -36,25 +37,43 @@ bool printLocation(CXCursor cursor)
 	return true;
 }
 
-std::ostream &operator<<(std::ostream &stream, const CXString & str)
+std::ostream &operator<<(std::ostream &stream, const CXString &str)
 {
 	stream << clang_getCString(str);
 	clang_disposeString(str);
 	return stream;
 }
 
+static std::string cx2string(const CXString &cx_str)
+{
+	std::string str(clang_getCString(cx_str));
+	clang_disposeString(cx_str);
+	return str;
+}
+
 CXChildVisitResult visitor(CXCursor cursor, CXCursor parent, CXClientData client_data)
 {
 	CXSourceLocation location = clang_getCursorLocation(cursor);
-	if (clang_Location_isFromMainFile(location) == 0)
+
+	if (clang_Location_isInSystemHeader(location))
 		return CXChildVisit_Continue;
 
+	//if (clang_Location_isFromMainFile(location) == 0)
+	//	return CXChildVisit_Continue;
+
 	CXCursorKind cursorKind = clang_getCursorKind(cursor);
+	CXString cursorSpelling = clang_getCursorSpelling(cursor);
+	auto name = cx2string(cursorSpelling);
+
+	NameSpaceData *data = reinterpret_cast<NameSpaceData*>(client_data);
 
 	switch (cursorKind)
 	{
+	case CXCursor_Namespace:
+		break;
 	case CXCursor_StructDecl:
 	case CXCursor_ClassDecl:
+
 		break;
 	case CXCursor_EnumDecl:
 	case CXCursor_EnumConstantDecl:
@@ -73,7 +92,7 @@ CXChildVisitResult visitor(CXCursor cursor, CXCursor parent, CXClientData client
 	unsigned int nextLevel = curLevel + 1;
 
 
-	std::cout << std::string(curLevel * 4, ' ') << clang_getCursorSpelling(cursor) 
+	std::cout << curLevel << " " << std::string(curLevel * 4, ' ') << clang_getCursorSpelling(cursor) 
 		<< " (" << clang_getCursorKindSpelling(cursorKind) << ") ";
 
 	//std::cout << clang_getTypeSpelling(clang_getCursorType(cursor));
@@ -87,7 +106,6 @@ CXChildVisitResult visitor(CXCursor cursor, CXCursor parent, CXClientData client
 	return CXChildVisit_Continue;
 }
 
-
 int main(int argc, char *argv[])
 {
 	CXIndex index = clang_createIndex(0, 0);
@@ -95,8 +113,11 @@ int main(int argc, char *argv[])
 	//CXTranslationUnit_DetailedPreprocessingRecord  //ºêÏà¹ØµÄ
 
 	auto flag = CXTranslationUnit_SkipFunctionBodies | 
-		CXTranslationUnit_DetailedPreprocessingRecord |
-		CXTranslationUnit_IncludeBriefCommentsInCodeCompletion;
+		//CXTranslationUnit_DetailedPreprocessingRecord |
+		CXTranslationUnit_IncludeBriefCommentsInCodeCompletion |
+		//CXTranslationUnit_SingleFileParse |
+		CXTranslationUnit_VisitImplicitAttributes |
+		CXTranslationUnit_KeepGoing;
 
 	CXTranslationUnit unit = clang_parseTranslationUnit(index, nullptr, argv, argc, nullptr, 0, flag);
 
@@ -109,14 +130,15 @@ int main(int argc, char *argv[])
 	printf("success!\n");
 	CXCursor root_cursor = clang_getTranslationUnitCursor(unit);
 
-	unsigned int client_data = 0;
+	//CXParseData client_data;
 	
+	unsigned int client_data = 0;
+
 	clang_visitChildren(
 		root_cursor,
 		visitor,
 		&client_data);
 	
-
 	clang_disposeTranslationUnit(unit);
 	clang_disposeIndex(index);
 
