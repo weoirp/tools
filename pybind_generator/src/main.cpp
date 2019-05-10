@@ -67,6 +67,10 @@ CXChildVisitResult visitor(CXCursor cursor, CXCursor parent, CXClientData client
 
 	NameSpaceData *data = reinterpret_cast<NameSpaceData*>(client_data);
 
+	unsigned int curLevel = *(reinterpret_cast<unsigned int*>(client_data));
+	unsigned int nextLevel = curLevel + 1;
+	std::cout << curLevel << " " << std::string(curLevel * 4, ' ');
+
 	switch (cursorKind)
 	{
 	case CXCursor_Namespace:
@@ -84,15 +88,19 @@ CXChildVisitResult visitor(CXCursor cursor, CXCursor parent, CXClientData client
 		break;
 	case CXCursor_FunctionDecl:
 		break;
+	case CXCursor_ParmDecl:
+	{
+		auto ctype = clang_getCursorType(cursor);
+		auto cxstr = clang_getTypeSpelling(ctype);
+		std::cout << cx2string(cxstr) << " ";
+		break;
+	}
 	default:
 		break;
 	}
+	
 
-	unsigned int curLevel = *(reinterpret_cast<unsigned int*>(client_data));
-	unsigned int nextLevel = curLevel + 1;
-
-
-	std::cout << curLevel << " " << std::string(curLevel * 4, ' ') << clang_getCursorSpelling(cursor) 
+	std::cout << clang_getCursorSpelling(cursor) 
 		<< " (" << clang_getCursorKindSpelling(cursorKind) << ") ";
 
 	//std::cout << clang_getTypeSpelling(clang_getCursorType(cursor));

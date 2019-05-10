@@ -10,6 +10,10 @@ message(STATUS "This is Source dir " ${PROJECT_SOURCE_DIR})
 
 
 set_property(GLOBAL PROPERTY USE_FOLDERS ON)
+SET(CMAKE_SKIP_BUILD_RPATH FALSE)
+SET(CMAKE_BUILD_WITH_INSTALL_RPATH TRUE)
+SET(CMAKE_INSTALL_RPATH "../lib")
+SET(CMAKE_INSTALL_RPATH_USE_LINK_PATH FALSE)
 
 
 set(EXECUTABLE_OUTPUT_PATH ${PROJECT_SOURCE_DIR}/bin)
@@ -31,7 +35,10 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11")
 
 include_directories(
      ${INCLUDE_PATH}
-     ${SOURCE_PATH}/base
+)
+
+link_directories(
+     ${LIBRARY_OUTPUT_PATH}
 )
 
 add_subdirectory(src)
