@@ -3,6 +3,7 @@
 #include <string>
 #include <vector>
 #include <map>
+#include <algorithm>
 #include <clang-c\Index.h>
 
 #include "xxdata.h"
@@ -13,12 +14,13 @@ class FunctionVisitor;
 class EnumVisitor;
 class VariableVisitor;
 
-static std::string cx2string(const CXString &cx_str)
+
+template<typename Data, typename std::enable_if<std::is_base_of<XXData, Data>::value, std::nullptr_t>::type = nullptr>
+struct ClientData
 {
-	std::string str(clang_getCString(cx_str));
-	clang_disposeString(cx_str);
-	return str;
-}
+	CXTranslationUnit *_TU;
+	Data *_data;
+};
 
 class NameSpaceVisitor
 {
@@ -27,8 +29,6 @@ public:
 	~NameSpaceVisitor() {}
 	static CXChildVisitResult travelAST(CXCursor cursor, CXCursor parent, CXClientData client_data);
 
-private:
-	NameSpaceData *data;
 };
 
 class ClassVisitor
@@ -37,8 +37,6 @@ public:
 	ClassVisitor() {}
 	~ClassVisitor() {}
 	static CXChildVisitResult travelAST(CXCursor cursor, CXCursor parent, CXClientData client_data);
-private:
-	ClassData *data;
 };
 
 class FunctionVisitor
@@ -47,8 +45,6 @@ public:
 	FunctionVisitor() {}
 	~FunctionVisitor() {}
 	static CXChildVisitResult travelAST(CXCursor cursor, CXCursor parent, CXClientData client_data);
-private:
-	FunctionData *data;
 };
 
 class EnumVisitor
@@ -57,9 +53,7 @@ public:
 	EnumVisitor() {}
 	~EnumVisitor() {}
 	static CXChildVisitResult travelAST(CXCursor cursor, CXCursor parent, CXClientData client_data);
-	static CXChildVisitResult travelEnumValue(CXCursor cursor, CXCursor parent, CXClientData client_data);
-private:
-	EnumData *data;
+
 };
 
 class VariableVisitor
@@ -68,6 +62,20 @@ public:
 	VariableVisitor() {}
 	~VariableVisitor() {}
 	static CXChildVisitResult travelAST(CXCursor cursor, CXCursor parent, CXClientData client_data);
-private:
-	VariableData *data;
+
 };
+
+class ParamVisitor
+{
+public:
+	ParamVisitor() {}
+	~ParamVisitor() {}
+	static CXChildVisitResult travelAST(CXCursor cursor, CXCursor parent, CXClientData client_data);
+};
+
+void toString(VariableData *data);
+void toString(ParamData *data);
+void toString(EnumData *data);
+void toString(FunctionData *data);
+void toString(ClassData *data);
+void toString(NameSpaceData *data);
