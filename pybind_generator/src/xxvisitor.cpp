@@ -7,7 +7,7 @@ static std::string cx2string(const CXString &cx_str)
 	return str;
 }
 
-CXChildVisitResult NameSpaceVisitor::travelAST(CXCursor cursor, CXCursor parent, CXClientData client_data)
+CXChildVisitResult TravelNamespace(CXCursor cursor, CXCursor parent, CXClientData client_data)
 {
 	CXSourceLocation location = clang_getCursorLocation(cursor);
 
@@ -27,15 +27,12 @@ CXChildVisitResult NameSpaceVisitor::travelAST(CXCursor cursor, CXCursor parent,
 	{
 		if (data->inner_namespaces.find(name) == data->inner_namespaces.end())
 		{
-			data->inner_namespaces.insert(
-				std::make_pair(
-					name,
-					std::unique_ptr<NameSpaceData>(new NameSpaceData(name))
-				)
+			data->inner_namespaces.emplace(
+				name, std::unique_ptr<NameSpaceData>(new NameSpaceData(name))
 			);
 		}
 		auto child = ClientData<NameSpaceData>{ c->_TU, data->inner_namespaces[name].get() };
-		clang_visitChildren(cursor, NameSpaceVisitor::travelAST, &child);
+		clang_visitChildren(cursor, TravelNamespace, &child);
 		break;
 	}
 	case CXCursor_StructDecl:
@@ -44,7 +41,7 @@ CXChildVisitResult NameSpaceVisitor::travelAST(CXCursor cursor, CXCursor parent,
 		data->classes.emplace_back(ClassData(name));
 		auto size = data->classes.size();
 		auto child = ClientData<ClassData>{ c->_TU, &(data->classes[size - 1]) };
-		clang_visitChildren(cursor, ClassVisitor::travelAST, &child);
+		clang_visitChildren(cursor, TravelClass, &child);
 		break;
 	}
 	case CXCursor_EnumDecl:
@@ -53,7 +50,7 @@ CXChildVisitResult NameSpaceVisitor::travelAST(CXCursor cursor, CXCursor parent,
 		data->enumerates.emplace_back(EnumData(name));
 		auto size = data->enumerates.size();
 		auto child = ClientData<EnumData>{ c->_TU, &(data->enumerates[size - 1]) };
-		clang_visitChildren(cursor, EnumVisitor::travelAST, &child);
+		clang_visitChildren(cursor, TravelEnum, &child);
 		break;
 	}
 	case CXCursor_FieldDecl:
@@ -63,7 +60,7 @@ CXChildVisitResult NameSpaceVisitor::travelAST(CXCursor cursor, CXCursor parent,
 		data->variables.emplace_back(VariableData(name));
 		auto size = data->variables.size();
 		auto child = ClientData<VariableData>{ c->_TU, &(data->variables[size - 1]) };
-		clang_visitChildren(cursor, VariableVisitor::travelAST, &child);
+		clang_visitChildren(cursor, TravelVariable, &child);
 		break;
 	}
 	case CXCursor_FunctionDecl:
@@ -71,7 +68,7 @@ CXChildVisitResult NameSpaceVisitor::travelAST(CXCursor cursor, CXCursor parent,
 		data->functions.emplace_back(FunctionData(name));
 		auto size = data->functions.size();
 		auto child = ClientData<FunctionData>{ c->_TU, &(data->functions[size - 1]) };
-		clang_visitChildren(cursor, FunctionVisitor::travelAST, &child);
+		clang_visitChildren(cursor, TravelFunction, &child);
 		break;
 	}
 	default:
@@ -80,7 +77,7 @@ CXChildVisitResult NameSpaceVisitor::travelAST(CXCursor cursor, CXCursor parent,
 	return CXChildVisit_Continue;
 }
 
-CXChildVisitResult ClassVisitor::travelAST(CXCursor cursor, CXCursor parent, CXClientData client_data)
+CXChildVisitResult TravelClass(CXCursor cursor, CXCursor parent, CXClientData client_data)
 {
 	CXSourceLocation location = clang_getCursorLocation(cursor);
 
@@ -93,15 +90,21 @@ CXChildVisitResult ClassVisitor::travelAST(CXCursor cursor, CXCursor parent, CXC
 
 	auto c = reinterpret_cast<ClientData<ClassData> *>(client_data);
 	auto data = c->_data;
-	auto &access_data = clang_getCursorKind(parent) == CXCursor_StructDecl ?
-		data->public_access : data->private_access;
+	auto *access_data = clang_getCursorKind(parent) == CXCursor_StructDecl ?
+		&data->public_access : &data->private_access;
 	auto cxxasp = clang_getCXXAccessSpecifier(cursor);
 	if (cxxasp == CX_CXXPublic)
-		access_data = data->public_access;
+	{
+		access_data = &data->public_access;
+	}
 	else if (cxxasp == CX_CXXProtected)
-		access_data = data->protect_access;
+	{
+		access_data = &data->protect_access;
+	}
 	else if (cxxasp == CX_CXXPrivate)
-		access_data = data->private_access;
+	{
+		access_data = &data->private_access;
+	}
 
 	switch (cursorKind)
 	{
@@ -117,24 +120,24 @@ CXChildVisitResult ClassVisitor::travelAST(CXCursor cursor, CXCursor parent, CXC
 		else if (cursorKind == CXCursor_Destructor)
 			ftype = FunctionKind::DESTRUCTOR;
 
-		access_data.class_functions.emplace_back(FunctionData(name, ftype));
-		auto size = access_data.class_functions.size();
+		access_data->class_functions.emplace_back(FunctionData(name, ftype));
+		auto size = access_data->class_functions.size();
 		auto storage_sc = clang_Cursor_getStorageClass(cursor);
 		if (storage_sc == CX_SC_Static)
 		{
-			access_data.class_functions[size - 1].is_static = true;
+			access_data->class_functions[size - 1].is_static = true;
 		}
 
-		auto child = ClientData<FunctionData>{ c->_TU, &(access_data.class_functions[size - 1]) };
-		clang_visitChildren(cursor, FunctionVisitor::travelAST, &child);
+		auto child = ClientData<FunctionData>{ c->_TU, &access_data->class_functions[size - 1] };
+		clang_visitChildren(cursor, TravelFunction, &child);
 		break;
 	}
 	case CXCursor_FieldDecl:
 	{
-		access_data.class_variables.emplace_back(VariableData(name));
-		auto size = access_data.class_variables.size();
-		auto child = ClientData<VariableData>{ c->_TU, &(access_data.class_variables[size - 1]) };
-		clang_visitChildren(cursor, VariableVisitor::travelAST, &child);
+		access_data->class_variables.emplace_back(VariableData(name));
+		auto size = access_data->class_variables.size();
+		auto child = ClientData<VariableData>{ c->_TU, &access_data->class_variables[size - 1] };
+		clang_visitChildren(cursor, TravelVariable, &child);
 		break;
 	}
 	default:
@@ -144,7 +147,7 @@ CXChildVisitResult ClassVisitor::travelAST(CXCursor cursor, CXCursor parent, CXC
 	return CXChildVisit_Continue;
 }
 
-CXChildVisitResult EnumVisitor::travelAST(CXCursor cursor, CXCursor parent, CXClientData client_data)
+CXChildVisitResult TravelEnum(CXCursor cursor, CXCursor parent, CXClientData client_data)
 {
 	CXSourceLocation location = clang_getCursorLocation(cursor);
 
@@ -166,7 +169,7 @@ CXChildVisitResult EnumVisitor::travelAST(CXCursor cursor, CXCursor parent, CXCl
 	return CXChildVisit_Continue;
 }
 
-CXChildVisitResult FunctionVisitor::travelAST(CXCursor cursor, CXCursor parent, CXClientData client_data)
+CXChildVisitResult TravelFunction(CXCursor cursor, CXCursor parent, CXClientData client_data)
 {
 	CXSourceLocation location = clang_getCursorLocation(cursor);
 
@@ -201,7 +204,7 @@ CXChildVisitResult FunctionVisitor::travelAST(CXCursor cursor, CXCursor parent, 
 		if (equal_sign != tokens + num_tokens)
 		{
 			param.has_default = true;
-			auto iter = equal_sign;
+			auto iter = equal_sign + 1;
 			while (iter != tokens + num_tokens)
 			{
 				param.arg_value.append(cx2string(clang_getTokenSpelling(*(c->_TU), *iter)));
@@ -211,6 +214,9 @@ CXChildVisitResult FunctionVisitor::travelAST(CXCursor cursor, CXCursor parent, 
 		clang_disposeTokens(*(c->_TU), tokens, num_tokens);
 
 		data->params.emplace_back(std::move(param));
+		auto size = data->params.size();
+		auto child = ClientData<ParamData>{ c->_TU, &(data->params[size - 1]) };
+		clang_visitChildren(cursor, TravelParam, &child);
 		break;
 	}
 	default:
@@ -220,8 +226,46 @@ CXChildVisitResult FunctionVisitor::travelAST(CXCursor cursor, CXCursor parent, 
 	return CXChildVisit_Continue;
 }
 
-CXChildVisitResult VariableVisitor::travelAST(CXCursor cursor, CXCursor parent, CXClientData client_data)
+CXChildVisitResult TravelVariable(CXCursor cursor, CXCursor parent, CXClientData client_data)
 {
-
 	return CXChildVisit_Continue;
+}
+
+CXChildVisitResult TravelParam(CXCursor cursor, CXCursor parent, CXClientData client_data)
+{
+	return CXChildVisit_Continue;
+}
+
+std::unique_ptr<NameSpaceData> Visitor(int argc, char *argv[])
+{
+	CXIndex index = clang_createIndex(0, 0);
+
+	//CXTranslationUnit_DetailedPreprocessingRecord  //ºêÏà¹ØµÄ
+
+	auto flag = CXTranslationUnit_SkipFunctionBodies |
+		CXTranslationUnit_DetailedPreprocessingRecord |
+		CXTranslationUnit_IncludeBriefCommentsInCodeCompletion |
+		CXTranslationUnit_VisitImplicitAttributes |
+		//CXTranslationUnit_IncludeAttributedTypes |
+		CXTranslationUnit_KeepGoing;
+
+	auto unit = clang_parseTranslationUnit(index, nullptr, argv, argc, nullptr, 0, flag);
+
+	if (unit == nullptr)
+	{
+		printf("Unable to parse translation unit!\n");
+		std::exit(-1);
+	}
+
+	CXCursor root_cursor = clang_getTranslationUnitCursor(unit);
+
+	auto ns = new NameSpaceData{ "global" };
+	ClientData<NameSpaceData> data{ &unit, ns };
+
+	clang_visitChildren(root_cursor, TravelNamespace, &data);
+
+	clang_disposeTranslationUnit(unit);
+	clang_disposeIndex(index);
+
+	return std::unique_ptr<NameSpaceData>{ ns };
 }
