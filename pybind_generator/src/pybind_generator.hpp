@@ -1,184 +1,119 @@
 #pragma once
 
-#include "xxvisitor.h"
+#include "xxdata.h"
 #include <sstream>
 
-template<class Data>
-class CppContents
+template<typename... Args>
+std::string string_format(const char *fmt, const Args&... args)
+{
+	int len = std::snprintf(nullptr, 0, fmt, args...) + 1;
+
+	std::string result;
+	result.resize(len);
+	std::snprintf(const_cast<char *>(result.data()), len, fmt, args...);
+	return result;
+}
+
+template<typename Class, typename C, typename D>
+void def_field(Class &c, D C::*pm, const std::string &py_var)
+{
+	c.def_readwrite(py_var.c_str(), pm);
+}
+
+template<typename Class, typename C, typename D>
+void def_field(Class &c, const D C::*pm, const std::string &py_var)
+{
+	c.def_readonly(py_var.c_str(), pm);
+}
+
+template<typename Class, typename C, typename D>
+void def_static_field(Class &c, D C::*pm, const std::string &py_var)
+{
+	c.def_readwrite_static(py_var.c_str(), pm);
+}
+
+template<typename Class, typename C, typename D>
+void def_static_field(Class &c, const D C::*pm, const std::string &py_var)
+{
+	c.def_readonly_static(py_var.c_str(), pm);
+}
+
+
+std::string MethodCode(const std::string &py_cls,
+	const std::string &py_method,
+	const std::string &params_str,
+	const std::string &cls_method)
+{
+	const char *code = R"(%s.def("%s", overload_cast<%s>(&%s));)";
+	
+	return string_format(code, py_cls.c_str(), py_method.c_str(), params_str.c_str(), cls_method.c_str());
+}
+
+std::string ConstructCode(const std::string &py_cls, const std::string &params_str)
+{
+	const char *code = R"(%s.def(py::init<%s>());)";
+
+	return string_format(code, py_cls.c_str(), params_str.c_str());
+}
+
+std::string StaticMethodCode(const std::string &py_cls,
+	const std::string &py_method,
+	const std::string &params_str,
+	const std::string &cls_method)
+{
+	const char *code = R"(%s.def_static("%s", overload_cast<%s>(&%s));)";
+
+	return string_format(code, py_cls.c_str(), py_method.c_str(), params_str.c_str(), cls_method.c_str());
+}
+
+std::string FieldCode(const std::string &py_cls,
+	const std::string &py_var,
+	const std::string &cls_var)
+{
+	const char *code = R"(def_field(%s, &%s, "%s");)";
+	return string_format(code, py_cls.c_str(), cls_var.c_str(), py_var.c_str());
+}
+
+std::string StaticFieldCode(const std::string &py_cls,
+	const std::string &py_var,
+	const std::string &cls_var)
+{
+	const char *code = R"(def_static_field(%s, &%s, "%s");)";
+	return string_format(code, py_cls.c_str(), cls_var.c_str(), py_var.c_str());
+}
+
+
+//struct GenerateConstruct {};
+//struct GenerateMethod {};
+//struct GenerateStaticMethod {};
+//struct GenerateVariable {};
+
+/**
+ * write to travel NameSpaceData
+ */
+
+template<typename Data>
+struct AssistData
+{
+	static_cast(std::is_base_of<XXInfo, Data>::value, "Data must inherit from XXInfo");
+	Data *_data;
+};
+
+class GenerateCode
 {
 public:
-	CppContents(const Data *data)
-		:data(data)
-	{
-	}
-
-	std::string Print(int level)
+	template<typename Data>
+	std::string Travel(const AssistData<Data> &current, const AssistData<Data> &parent)
 	{
 		return std::string{};
 	}
-
-	const Data *data{ nullptr };
-};
-
-template<class ClassData>
-class ShowContents : public CppContents<ClassData>
-{
-public:
-	ShowContents(const ClassData *data, const std::string &indent = "\t")
-		:CppContents<ClassData>(data), indent(indent)
-	{}
-
-	std::string Print(int level);
-	std::string indent{ "\t" };
 };
 
 template<>
-std::string ShowContents<NameSpaceData>::Print(int level)
+std::string GenerateCode::Travel(const AssistData<ClassInfo> &current, const AssistData<ClassInfo> &parent)
 {
-	std::stringstream out;
-	std::stringstream indent_block;
-	for (int i = 0; i < level; i++)
-		indent_block << indent;
-
-	out << indent_block.str() << "namespace " << data->name << " {\n";
-
-	for (const auto &iter: data->classes)
-	{
-		auto c = ShowContents<ClassData>{ &iter, indent };
-		out << c.Print(level + 1) << "\n";
-	}
-	for (const auto &iter: data->functions)
-	{
-		auto f = ShowContents<FunctionData>{ &iter, indent };
-		out << f.Print(level + 1) << "\n";
-	}
-	for (const auto &iter: data->enumerates)
-	{
-		auto e = ShowContents<EnumData>{ &iter, indent };
-		out << e.Print(level + 1) << "\n";
-	}
-	for (const auto &iter: data->variables)
-	{
-		auto v = ShowContents<VariableData>{ &iter, indent };
-		out << v.Print(level + 1) << "\n";
-	}
-	for (const auto &iter: data->inner_namespaces)
-	{
-		auto n = ShowContents<NameSpaceData>{ iter.second.get(), indent };
-		out << n.Print(level + 1) << "\n";
-	}
-
-	out << indent_block.str() << "}\n";
-
-	return out.str();
+	return "";
 }
 
-template<>
-std::string ShowContents<ClassData>::Print(int level)
-{
-	std::stringstream out;
-	std::stringstream indent_block;
-	for (int i = 0; i < level; i++)
-		indent_block << indent;
 
-	out << indent_block.str() << "class " << data->name << " {\n";
 
-	const AccessData * vec_access[] = { &data->public_access, &data->protect_access, &data->private_access };
-	auto vec_acc_name = std::vector<std::string>{ "public:\n", "protected:\n", "private:\n" };
-
-	for (int i = 0; i < 3; i++)
-	{
-		auto acc = vec_access[i];
-		if (acc->class_functions.size() || acc->class_variables.size())
-		{
-			out << indent_block.str() << vec_acc_name[i];
-			for (const auto &iter : acc->class_functions)
-			{
-				auto func = ShowContents<FunctionData>{ &iter, indent };
-				out << func.Print(level + 1) << "\n";
-			}
-			for (const auto &iter : acc->class_variables)
-			{
-				auto variable = ShowContents<VariableData>{ &iter, indent };
-				out << variable.Print(level + 1) << "\n";
-			}
-		}
-	}
-
-	out << indent_block.str() << "};";
-
-	return out.str();
-}
-
-template<>
-std::string ShowContents<EnumData>::Print(int level)
-{
-	std::stringstream out;
-	std::stringstream indent_block;
-	for (int i = 0; i < level; i++)
-		indent_block << indent;
-
-	out << indent_block.str() << "enum " << data->name << " {\n";
-	for (const auto &iter: data->tags)
-	{
-		out << indent_block.str() << indent << iter.c_str() << ",\n";
-	}
-	out << indent_block.str() << "};";
-
-	return out.str();
-}
-
-template<>
-std::string ShowContents<FunctionData>::Print(int level)
-{
-	std::ostringstream out;
-	for (int i = 0; i < level; i++)
-		out << indent;
-	if (data->is_static)
-		out << "static ";
-	if (data->f_type == FunctionKind::CONSTRUCTOR)
-	{
-		out << "(CONSTRUCTOR) ";
-	}
-	else if (data->f_type == FunctionKind::DESTRUCTOR)
-	{
-		out << "(DESTRUCTOR) ";
-	}
-	else if (data->f_type == FunctionKind::CXXMETHOD)
-	{
-		out << "(CXXMETHOD) ";
-	}
-
-	out << data->name << " (";
-	for (const auto &iter: data->params)
-	{
-		auto param = ShowContents<ParamData>{ &iter, indent };
-		out << param.Print(level) << ", ";
-	}
-	out << ");";
-
-	return out.str();
-}
-
-template<>
-std::string ShowContents<VariableData>::Print(int level)
-{
-	std::ostringstream out;
-	for (int i = 0; i < level; i++)
-		out << indent;
-	out << data->name << ";";
-	return out.str();
-}
-
-template<>
-std::string ShowContents<ParamData>::Print(int level)
-{
-	std::ostringstream out;
-	out << data->arg_type << " " << data->name;
-	if (data->has_default)
-	{
-		out << " = " << data->arg_value;
-	}
-
-	return out.str();
-}

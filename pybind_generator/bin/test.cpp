@@ -13,7 +13,7 @@ struct NoConstructor {
 		return ptr;
 	}
 
-	std::string str(std::string xx) {
+	std::string str(std::string xx) const{
 
 	}
 
@@ -21,7 +21,7 @@ struct NoConstructor {
 		
 	}
 
-	int getInterger() {
+	int getInterger() const {
 		
 	}
 
@@ -32,21 +32,27 @@ namespace zzz
 {
 	double aa;
 	NoConstructor bb;
+	const double cc = 33;
+	static int dd = 44;
+	static const int ee = 55;
 	namespace xxx
 	{
-		static int cc = 1;
-		const int dd = 0;
+
 		class Pet {
 		public:
 			Pet(const std::string &name, const std::string &species)
 				: m_name(name), m_species(species) {}
 			/// 注释注释
-			static std::string name() const { return m_name; }
+			static std::string name() { return m_name; }
 			std::string species() const { return m_species; }
 		private:
 			std::string m_name;
 			std::string m_species;
-		};		
+			static int cc;
+			const int dd = 0;
+			static const ee = 123;
+			const static ff = 321;			
+		};	
 	} // xxx
 	
 } // zzz
@@ -65,7 +71,7 @@ NameSpaceData function1(const EnumData &r, AccessData *h, ClassData c)
 
 }
 
-void function2(int param1, char *param2, double &param3);
+void function2(const int param1, char *param2=nullptr, double param3=0.0);
 
 enum MyEnum { EFirstEntry = 1, ESecondEntry };
 enum class Enum {

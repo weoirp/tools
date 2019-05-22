@@ -1,39 +1,24 @@
 #pragma once
 
-#include "xxvisitor.h"
+#include "xxvisitor.hpp"
 #include <sstream>
 
-template<class Data>
-class CppContents
-{
-public:
-	CppContents(const Data *data)
-		:data(data)
-	{
-	}
 
-	std::string Print(int level)
-	{
-		return std::string{};
-	}
-
-	const Data *data{ nullptr };
-};
-
-template<class Data, typename std::enable_if<std::is_base_of<XXData, Data>::value, std::nullptr_t>::type = nullptr >
-class ShowContents : public CppContents<Data>
+template<class Data, typename std::enable_if<std::is_base_of<XXInfo, Data>::value, std::nullptr_t>::type = nullptr >
+class ShowContents
 {
 public:
 	ShowContents(const Data *data, const std::string &indent = "\t")
-		:CppContents<Data>(data), indent(indent)
+		:data(data), indent(indent)
 	{}
 
 	std::string Print(int level);
 	std::string indent{ "\t" };
+	const Data *data{ nullptr };
 };
 
 template<>
-std::string ShowContents<NameSpaceData>::Print(int level)
+std::string ShowContents<NameSpaceInfo>::Print(int level)
 {
 	std::stringstream out;
 	std::stringstream indent_block;
@@ -44,27 +29,27 @@ std::string ShowContents<NameSpaceData>::Print(int level)
 
 	for (const auto &iter: data->classes)
 	{
-		auto c = ShowContents<ClassData>{ &iter, indent };
+		auto c = ShowContents<ClassInfo>{ &iter, indent };
 		out << c.Print(level + 1) << "\n";
 	}
 	for (const auto &iter: data->functions)
 	{
-		auto f = ShowContents<FunctionData>{ &iter, indent };
+		auto f = ShowContents<FunctionInfo>{ &iter, indent };
 		out << f.Print(level + 1) << "\n";
 	}
 	for (const auto &iter: data->enumerates)
 	{
-		auto e = ShowContents<EnumData>{ &iter, indent };
+		auto e = ShowContents<EnumInfo>{ &iter, indent };
 		out << e.Print(level + 1) << "\n";
 	}
 	for (const auto &iter: data->variables)
 	{
-		auto v = ShowContents<VariableData>{ &iter, indent };
+		auto v = ShowContents<VariableInfo>{ &iter, indent };
 		out << v.Print(level + 1) << "\n";
 	}
 	for (const auto &iter: data->inner_namespaces)
 	{
-		auto n = ShowContents<NameSpaceData>{ iter.second.get(), indent };
+		auto n = ShowContents<NameSpaceInfo>{ iter.second.get(), indent };
 		out << n.Print(level + 1) << "\n";
 	}
 
@@ -74,7 +59,7 @@ std::string ShowContents<NameSpaceData>::Print(int level)
 }
 
 template<>
-std::string ShowContents<ClassData>::Print(int level)
+std::string ShowContents<ClassInfo>::Print(int level)
 {
 	std::stringstream out;
 	std::stringstream indent_block;
@@ -83,7 +68,7 @@ std::string ShowContents<ClassData>::Print(int level)
 
 	out << indent_block.str() << "class " << data->name << " {\n";
 
-	const AccessData * vec_access[] = { &data->public_access, &data->protect_access, &data->private_access };
+	const AccessInfo * vec_access[] = { &data->public_access, &data->protect_access, &data->private_access };
 	auto vec_acc_name = std::vector<std::string>{ "public:\n", "protected:\n", "private:\n" };
 
 	for (int i = 0; i < 3; i++)
@@ -94,12 +79,12 @@ std::string ShowContents<ClassData>::Print(int level)
 			out << indent_block.str() << vec_acc_name[i];
 			for (const auto &iter : acc->class_functions)
 			{
-				auto func = ShowContents<FunctionData>{ &iter, indent };
+				auto func = ShowContents<CXXMethodInfo>{ &iter, indent };
 				out << func.Print(level + 1) << "\n";
 			}
 			for (const auto &iter : acc->class_variables)
 			{
-				auto variable = ShowContents<VariableData>{ &iter, indent };
+				auto variable = ShowContents<FieldInfo>{ &iter, indent };
 				out << variable.Print(level + 1) << "\n";
 			}
 		}
@@ -111,7 +96,7 @@ std::string ShowContents<ClassData>::Print(int level)
 }
 
 template<>
-std::string ShowContents<EnumData>::Print(int level)
+std::string ShowContents<EnumInfo>::Print(int level)
 {
 	std::stringstream out;
 	std::stringstream indent_block;
@@ -129,14 +114,34 @@ std::string ShowContents<EnumData>::Print(int level)
 }
 
 template<>
-std::string ShowContents<FunctionData>::Print(int level)
+std::string ShowContents<FunctionInfo>::Print(int level)
 {
 	std::ostringstream out;
 	for (int i = 0; i < level; i++)
 		out << indent;
 	if (data->is_static)
 		out << "static ";
-	if (data->f_type == FunctionKind::CONSTRUCTOR)
+
+	out << data->name << " (";
+	for (const auto &iter: data->params)
+	{
+		auto param = ShowContents<ParamInfo>{ &iter, indent };
+		out << param.Print(level) << ", ";
+	}
+	out << ");";
+
+	return out.str();
+}
+
+template<>
+std::string ShowContents<CXXMethodInfo>::Print(int level)
+{
+	std::ostringstream out;
+	for (int i = 0; i < level; i++)
+		out << indent;
+	if (data->is_static)
+		out << "static ";
+	if (data->f_type == FunctionKind::NORMAL_CONSTRUCTOR)
 	{
 		out << "(CONSTRUCTOR) ";
 	}
@@ -148,20 +153,22 @@ std::string ShowContents<FunctionData>::Print(int level)
 	{
 		out << "(CXXMETHOD) ";
 	}
-
-	out << data->name << " (";
-	for (const auto &iter: data->params)
+	out << data->cls_name << "::" << data->name << " (";
+	for (const auto &iter : data->params)
 	{
-		auto param = ShowContents<ParamData>{ &iter, indent };
+		auto param = ShowContents<ParamInfo>{ &iter, indent };
 		out << param.Print(level) << ", ";
 	}
-	out << ");";
+	out << ")";
+	if (data->is_const)
+		out << " const";
 
 	return out.str();
 }
 
+
 template<>
-std::string ShowContents<VariableData>::Print(int level)
+std::string ShowContents<VariableInfo>::Print(int level)
 {
 	std::ostringstream out;
 	for (int i = 0; i < level; i++)
@@ -171,7 +178,25 @@ std::string ShowContents<VariableData>::Print(int level)
 }
 
 template<>
-std::string ShowContents<ParamData>::Print(int level)
+std::string ShowContents<FieldInfo>::Print(int level)
+{
+	std::ostringstream out;
+	for (int i = 0; i < level; i++)
+		out << indent;
+	if (data->is_static)
+	{
+		out << "(static) ";
+	}
+	if (data->is_const)
+	{
+		out << "(const) ";
+	}
+	out << data->class_name << "::" << data->name << ";";
+	return out.str();
+}
+
+template<>
+std::string ShowContents<ParamInfo>::Print(int level)
 {
 	std::ostringstream out;
 	out << data->arg_type << " " << data->name;
@@ -181,4 +206,10 @@ std::string ShowContents<ParamData>::Print(int level)
 	}
 
 	return out.str();
+}
+
+std::string show_contents(const NameSpaceInfo *ns)
+{
+	ShowContents<NameSpaceInfo> d{ ns, "    " };
+	return d.Print(0);
 }

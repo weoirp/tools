@@ -4,28 +4,38 @@
 #include <string>
 #include <vector>
 #include <memory>
+#include <unordered_map>
 
-struct XXData
+struct XXInfo
 {
-	XXData(const std::string &name)
+	XXInfo(const std::string &name)
 		:name(name)
 	{}
 
-	XXData(const std::string &&name)
+	XXInfo(const std::string &&name)
 		:name(std::move(name))
 	{}
 
 	std::string name{ };
 };
 
-struct VariableData: XXData
+struct VariableInfo: XXInfo
 {
-	using XXData::XXData;
+	using XXInfo::XXInfo;
 };
 
-struct ParamData: XXData
+struct FieldInfo: XXInfo
 {
-	using XXData::XXData;
+	using XXInfo::XXInfo;
+
+	std::string class_name{ };
+	bool is_static{ false };
+	bool is_const{ false };
+};
+
+struct ParamInfo: XXInfo
+{
+	using XXInfo::XXInfo;
 
 	bool has_default{ false };
 
@@ -35,58 +45,75 @@ struct ParamData: XXData
 
 enum class FunctionKind
 {
-	NORMAL = 0,
-	CXXMETHOD,
-	CONSTRUCTOR,
+	CXXMETHOD = 0,
+	NORMAL_CONSTRUCTOR,
+	COPY_CONSTRUCTOR,
+	MOVE_CONSTRUCTOR,
 	DESTRUCTOR
 };
 
-struct FunctionData: XXData
+struct FunctionInfo: XXInfo
 {
-	FunctionData(const std::string &name, FunctionKind type = FunctionKind::NORMAL)
-		:XXData(name), f_type(type)
+	FunctionInfo(const std::string &name)
+		:XXInfo(name)
 	{}
 
-	FunctionData(const std::string &&name, FunctionKind type = FunctionKind::NORMAL)
-		:XXData(name), f_type(type)
+	FunctionInfo(const std::string &&name)
+		:XXInfo(name)
 	{}
 
-	std::vector<ParamData> params{ };
+	std::vector<ParamInfo> params{ };
 	bool is_static{ false };
-	FunctionKind f_type{ FunctionKind::NORMAL };
+};
+
+struct CXXMethodInfo : XXInfo
+{
+	CXXMethodInfo(const std::string &name, FunctionKind type = FunctionKind::CXXMETHOD)
+		:XXInfo(name), f_type(type)
+	{}
+	
+	CXXMethodInfo(const std::string &&name, FunctionKind type = FunctionKind::CXXMETHOD)
+		:XXInfo(name), f_type(type)
+	{}
+
+	std::vector<ParamInfo> params{ };
+	std::string cls_name{};
+	FunctionKind f_type{ FunctionKind::CXXMETHOD };
+	bool is_static{ false };
+	bool is_const{ false };
 };
 
 
-struct EnumData: XXData
+struct EnumInfo: XXInfo
 {
-	using XXData::XXData;
+	using XXInfo::XXInfo;
 
 	std::vector<std::string> tags{ };
 };
 
-struct AccessData
+struct AccessInfo
 {
-	std::vector<VariableData> class_variables{ };
-	std::vector<FunctionData> class_functions{ };
+	std::vector<FieldInfo> class_variables{ };
+	std::vector<CXXMethodInfo> class_functions{ };
 };
 
-struct ClassData: XXData
+struct ClassInfo: XXInfo
 {
-	using XXData::XXData;
+	using XXInfo::XXInfo;
 
-	AccessData private_access{ };
-	AccessData protect_access{ };
-	AccessData public_access{ };
+	AccessInfo private_access{ };
+	AccessInfo protect_access{ };
+	AccessInfo public_access{ };
 };
 
-struct NameSpaceData: XXData
+struct NameSpaceInfo: XXInfo
 {
-	using XXData::XXData;
-	using NameSpaceDataPtr = std::unique_ptr<NameSpaceData>;
+	using XXInfo::XXInfo;
+	using NameSpaceInfoPtr = std::unique_ptr<NameSpaceInfo>;
 
-	std::vector<VariableData> variables{ };
-	std::vector<FunctionData> functions{ };
-	std::vector<EnumData> enumerates{ };
-	std::vector<ClassData> classes{ };
-	std::map<std::string, NameSpaceDataPtr> inner_namespaces{ };
+	std::vector<VariableInfo> variables{ };
+	std::vector<FunctionInfo> functions{ };
+	std::vector<EnumInfo> enumerates{ };
+	std::vector<ClassInfo> classes{ };
+	std::unordered_map<std::string, NameSpaceInfoPtr> inner_namespaces{ };
 };

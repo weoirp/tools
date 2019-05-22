@@ -17,11 +17,11 @@ enum class DataType
 };
 
 
-//struct VariableData;
-//struct FunctionData;
-//struct EnumData;
-//struct ClassData;
-//struct NameSpaceData;
+//struct VariableInfo;
+//struct FunctionInfo;
+//struct EnumInfo;
+//struct ClassInfo;
+//struct NameSpaceInfo;
 
 
 
@@ -30,7 +30,7 @@ class CXParseData
 public:
 	CXParseData(const std::string &global_name) 
 	{
-		global_namespace = new NameSpaceData(global_name);
+		global_namespace = new NameSpaceInfo(global_name);
 	}
 	~CXParseData() 
 	{
@@ -39,6 +39,6 @@ public:
 
 	
 private:
-	NameSpaceData *global_namespace;
+	NameSpaceInfo *global_namespace;
 };
 
