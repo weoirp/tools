@@ -35,7 +35,7 @@ private:
 	ClientData<Data> *_client;
 };
 
-template<typename Data, typename = std::enable_if<std::is_base_of<XXInfo, Data>::value>::type>
+template<typename Data, typename = std::enable_if<std::is_base_of<XXInfo<Data>, Data>::value>::type>
 CXChildVisitResult CursorVisitor(CXCursor cursor, CXCursor parent, CXClientData client_data)
 {
 	ClientData<Data> *client = reinterpret_cast<ClientData<Data> *>(client_data);
@@ -45,7 +45,7 @@ CXChildVisitResult CursorVisitor(CXCursor cursor, CXCursor parent, CXClientData 
 template<typename Data>
 struct ClientData
 {
-	static_assert(std::is_base_of<XXInfo, Data>::value, "Data must inherit from XXInfo");
+	static_assert(std::is_base_of<XXInfo<Data>, Data>::value, "Data must inherit from XXInfo");
 	CXTranslationUnit _TU;
 	Data *_data;
 
@@ -249,7 +249,7 @@ CXChildVisitResult DataVisitor<ClassInfo>::Travel(CXCursor cursor, CXCursor pare
 		access_data->class_functions.emplace_back(CXXMethodInfo(name, ftype));
 		auto size = access_data->class_functions.size();
 
-		access_data->class_functions[size - 1].cls_name = cx2string(clang_getCursorSpelling(parent));
+		access_data->class_functions[size - 1].class_name = cx2string(clang_getCursorSpelling(parent));
 		if (clang_CXXMethod_isConst(cursor))
 		{
 			access_data->class_functions[size - 1].is_const = true;

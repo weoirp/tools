@@ -28,6 +28,12 @@ struct NoConstructor {
 	~NoConstructor() { print_destroyed(this); }
 };
 
+class B {
+public:
+	B(const NoConstructor *a)
+	{}
+};
+
 namespace zzz
 {
 	double aa;
@@ -35,6 +41,10 @@ namespace zzz
 	const double cc = 33;
 	static int dd = 44;
 	static const int ee = 55;
+	namespace AAA
+	{}
+	namespace BBB
+	{}
 	namespace xxx
 	{
 

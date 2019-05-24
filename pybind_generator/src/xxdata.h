@@ -6,6 +6,7 @@
 #include <memory>
 #include <unordered_map>
 
+template<typename Derived>
 struct XXInfo
 {
 	XXInfo(const std::string &name)
@@ -16,15 +17,20 @@ struct XXInfo
 		:name(std::move(name))
 	{}
 
+	Derived *derived()
+	{
+		return static_cast<Derived*>(this);
+	}
+
 	std::string name{ };
 };
 
-struct VariableInfo: XXInfo
+struct VariableInfo: XXInfo<VariableInfo>
 {
 	using XXInfo::XXInfo;
 };
 
-struct FieldInfo: XXInfo
+struct FieldInfo: XXInfo<FieldInfo>
 {
 	using XXInfo::XXInfo;
 
@@ -33,7 +39,7 @@ struct FieldInfo: XXInfo
 	bool is_const{ false };
 };
 
-struct ParamInfo: XXInfo
+struct ParamInfo: XXInfo<ParamInfo>
 {
 	using XXInfo::XXInfo;
 
@@ -52,7 +58,7 @@ enum class FunctionKind
 	DESTRUCTOR
 };
 
-struct FunctionInfo: XXInfo
+struct FunctionInfo: XXInfo<FunctionInfo>
 {
 	FunctionInfo(const std::string &name)
 		:XXInfo(name)
@@ -66,7 +72,7 @@ struct FunctionInfo: XXInfo
 	bool is_static{ false };
 };
 
-struct CXXMethodInfo : XXInfo
+struct CXXMethodInfo : XXInfo<CXXMethodInfo>
 {
 	CXXMethodInfo(const std::string &name, FunctionKind type = FunctionKind::CXXMETHOD)
 		:XXInfo(name), f_type(type)
@@ -77,14 +83,14 @@ struct CXXMethodInfo : XXInfo
 	{}
 
 	std::vector<ParamInfo> params{ };
-	std::string cls_name{};
+	std::string class_name{};
 	FunctionKind f_type{ FunctionKind::CXXMETHOD };
 	bool is_static{ false };
 	bool is_const{ false };
 };
 
 
-struct EnumInfo: XXInfo
+struct EnumInfo: XXInfo<EnumInfo>
 {
 	using XXInfo::XXInfo;
 
@@ -97,7 +103,7 @@ struct AccessInfo
 	std::vector<CXXMethodInfo> class_functions{ };
 };
 
-struct ClassInfo: XXInfo
+struct ClassInfo: XXInfo<ClassInfo>
 {
 	using XXInfo::XXInfo;
 
@@ -106,7 +112,7 @@ struct ClassInfo: XXInfo
 	AccessInfo public_access{ };
 };
 
-struct NameSpaceInfo: XXInfo
+struct NameSpaceInfo: XXInfo<NameSpaceInfo>
 {
 	using XXInfo::XXInfo;
 	using NameSpaceInfoPtr = std::unique_ptr<NameSpaceInfo>;

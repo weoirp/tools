@@ -6,6 +6,7 @@
 
 #include "xxvisitor.hpp"
 #include "show_contents.hpp"
+#include "pybind_generator.hpp"
 
 int func11(int i)
 {
@@ -43,8 +44,10 @@ int main(int argc, char *argv[])
 {
 	auto nsdata = Visitor(argc, argv);
 
-	auto code = show_contents(nsdata.get());
+	//auto code = show_contents(nsdata.get());
+	//std::cout << code << std::endl;
 
+	auto code = printCode(nsdata.get(), "pymod");
 	std::cout << code << std::endl;
 
 }

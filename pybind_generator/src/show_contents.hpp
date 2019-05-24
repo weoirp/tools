@@ -4,7 +4,7 @@
 #include <sstream>
 
 
-template<class Data, typename std::enable_if<std::is_base_of<XXInfo, Data>::value, std::nullptr_t>::type = nullptr >
+template<class Data, typename std::enable_if<std::is_base_of<XXInfo<Data>, Data>::value, std::nullptr_t>::type = nullptr >
 class ShowContents
 {
 public:
@@ -153,7 +153,7 @@ std::string ShowContents<CXXMethodInfo>::Print(int level)
 	{
 		out << "(CXXMETHOD) ";
 	}
-	out << data->cls_name << "::" << data->name << " (";
+	out << data->class_name << "::" << data->name << " (";
 	for (const auto &iter : data->params)
 	{
 		auto param = ShowContents<ParamInfo>{ &iter, indent };
