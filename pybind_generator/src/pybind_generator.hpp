@@ -109,7 +109,8 @@ public:
 	GenerateCode(const std::string &indent = "\t")
 		:indent(indent)
 	{}
-
+	friend std::string Travel(NameSpaceInfo *ns);
+private:
 	std::string Travel(AssistData<VariableInfo> &current, const AssistData<NameSpaceInfo> &parent);
 	std::string Travel(AssistData<FunctionInfo> &current, const AssistData<NameSpaceInfo> &parent);
 	std::string Travel(AssistData<ClassInfo> &current, const AssistData<NameSpaceInfo> &parent);
@@ -170,7 +171,7 @@ std::string GenerateCode::Travel(AssistData<NameSpaceInfo> &current, const Assis
 		indent_block << indent;
 
 	{
-		auto class_defined = R"(auto &c = py::class_<%s>(%s, "%s");)";
+		auto class_defined = R"(auto c = py::class_<%s>(%s, "%s");)";
 		for (auto &iter: current._data->derived()->classes)
 		{
 			out << indent_block.str() << "{\n";
@@ -182,7 +183,7 @@ std::string GenerateCode::Travel(AssistData<NameSpaceInfo> &current, const Assis
 	}
 	
 	{
-		auto sub_mod_defined = R"(auto &%s = %s.def_submodule("%s");)";
+		auto sub_mod_defined = R"(auto %s = %s.def_submodule("%s");)";
 		for (auto &iter: current._data->derived()->inner_namespaces)
 		{
 			out << indent_block.str() << "{\n";
@@ -242,19 +243,36 @@ std::string GenerateCode::Travel(AssistData<CXXMethodInfo> &current, const Assis
 }
 
 
-std::string printCode(NameSpaceInfo *ns, const std::string &py_mod)
-{
-	auto mod_defined = R"(PYBIND11_MODULE(%s, %s))";
-	
+static std::string Travel(NameSpaceInfo *ns)
+{	
 	std::string indent = "\t";
 	GenerateCode generate_code(indent);
 
 	std::ostringstream out;
-	out << string_format(mod_defined, py_mod.c_str(), "m") << "{\n";
+	out << "{\n";
+	out << indent << "namespace py = pybind11;\n";
 	AssistData<NameSpaceInfo> root{ ns, "m", 1 };
 	AssistData<NameSpaceInfo> parent{ nullptr, "", 0 };
 	out << generate_code.Travel(root, parent);
 	out << "}\n";
 
+	return out.str();
+}
+
+std::string printExtensionCode(NameSpaceInfo *ns, const std::string &py_mod)
+{
+	auto mod_defined = R"(PYBIND11_MODULE(%s, %s))";
+	std::ostringstream out;
+	out << string_format(mod_defined, py_mod.c_str(), "m") << "\n";
+	out << Travel(ns);
+	return out.str();
+}
+
+std::string printEmbeddedCode(NameSpaceInfo *ns, const std::string &py_mod)
+{
+	auto mod_defined = R"(PYBIND11_EMBEDDED_MODULE(%s, %s))";
+	std::ostringstream out;
+	out << string_format(mod_defined, py_mod.c_str(), "m") << "\n";
+	out << Travel(ns);
 	return out.str();
 }

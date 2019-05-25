@@ -47,7 +47,7 @@ int main(int argc, char *argv[])
 	//auto code = show_contents(nsdata.get());
 	//std::cout << code << std::endl;
 
-	auto code = printCode(nsdata.get(), "pymod");
+	auto code = printExtensionCode(nsdata.get(), "pymod");
 	std::cout << code << std::endl;
 
 }
