@@ -130,7 +130,28 @@ std::string GenerateCode::Travel(AssistData<VariableInfo> &current, const Assist
 
 std::string GenerateCode::Travel(AssistData<FunctionInfo> &current, const AssistData<NameSpaceInfo> &parent)
 {
-	return {};
+	std::ostringstream out;
+	for (int i = 0; i < current.level; i++)
+		out << indent;
+
+	auto mod = parent.decl_var;
+	auto &params = current._data->derived()->params;
+	std::ostringstream params_str;
+	if (params.size())
+	{
+		auto iter = params.begin();
+		for (; iter != params.end() - 1; iter++)
+		{
+			params_str << iter->arg_type << ", ";
+		}
+		params_str << iter->arg_type;
+	}
+	if (current._data->derived()->is_static)
+	{
+		return {};
+	}
+	out << MethodCode(mod, current._data->name, params_str.str(), current._data->name);
+	return out.str();
 }
 
 
@@ -147,13 +168,13 @@ std::string GenerateCode::Travel(AssistData<ClassInfo> &current, const AssistDat
 		if (!(iter.f_type == FunctionKind::CXXMETHOD || iter.f_type == FunctionKind::NORMAL_CONSTRUCTOR))
 			continue;
 		AssistData<CXXMethodInfo> method{ &iter, "", current.level };
-		out << indent_block.str() << Travel(method, current) << "\n";
+		out << Travel(method, current) << "\n";
 	}
 
 	for (auto &iter: access.class_variables)
 	{
 		AssistData<FieldInfo> field{ &iter, "", current.level };
-		out << indent_block.str() << Travel(field, current) << "\n";
+		out << Travel(field, current) << "\n";
 	}
 
 	
@@ -181,6 +202,14 @@ std::string GenerateCode::Travel(AssistData<NameSpaceInfo> &current, const Assis
 			out << indent_block.str() << "}\n";
 		}
 	}
+
+	{
+		for (auto &iter: current._data->derived()->functions)
+		{
+			AssistData<FunctionInfo> func{ &iter, "", current.level };
+			out << Travel(func, current) << "\n";
+		}
+	}
 	
 	{
 		auto sub_mod_defined = R"(auto %s = %s.def_submodule("%s");)";
@@ -201,17 +230,27 @@ std::string GenerateCode::Travel(AssistData<NameSpaceInfo> &current, const Assis
 
 std::string GenerateCode::Travel(AssistData<FieldInfo> &current, const AssistData<ClassInfo> &parent)
 {
+	std::ostringstream out;
+	for (int i = 0; i < current.level; i++)
+		out << indent;
+
 	auto cls_defined = parent.decl_var;
 	auto cls_var = current._data->derived()->class_name + "::" + current._data->name;
 	auto py_var = current._data->name;
 	if (current._data->derived()->is_static)
-		return StaticFieldCode(cls_defined, py_var, cls_var);
-	return FieldCode(cls_defined, py_var, cls_var);
+		out << StaticFieldCode(cls_defined, py_var, cls_var);
+	else
+		out << FieldCode(cls_defined, py_var, cls_var);
+	return out.str();
 }
 
 
 std::string GenerateCode::Travel(AssistData<CXXMethodInfo> &current, const AssistData<ClassInfo> &parent)
 {
+	std::ostringstream out;
+	for (int i = 0; i < current.level; i++)
+		out << indent;
+
 	auto cls_defined = parent.decl_var;
 	auto &params = current._data->derived()->params;
 	std::ostringstream params_str;
@@ -227,7 +266,7 @@ std::string GenerateCode::Travel(AssistData<CXXMethodInfo> &current, const Assis
 	auto f_type = current._data->derived()->f_type;
 	if (f_type == FunctionKind::NORMAL_CONSTRUCTOR)
 	{
-		return ConstructCode(cls_defined, params_str.str());
+		out << ConstructCode(cls_defined, params_str.str());
 	}
 	else if (f_type == FunctionKind::CXXMETHOD)
 	{
@@ -235,11 +274,18 @@ std::string GenerateCode::Travel(AssistData<CXXMethodInfo> &current, const Assis
 		auto cls_method = current._data->derived()->class_name + "::" + current._data->name;
 		if (current._data->derived()->is_static)
 		{
-			return StaticMethodCode(cls_defined, py_method, params_str.str(), cls_method);
+			out << StaticMethodCode(cls_defined, py_method, params_str.str(), cls_method);
 		}
-		return MethodCode(cls_defined, py_method, params_str.str(), cls_method);
+		else
+		{
+			out << MethodCode(cls_defined, py_method, params_str.str(), cls_method);
+		}
 	}
-	return {};
+	else
+	{
+		return {};
+	}
+	return out.str();
 }
 
 
