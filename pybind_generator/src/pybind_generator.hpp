@@ -14,37 +14,12 @@ std::string string_format(const char *fmt, const Args&... args)
 	return result;
 }
 
-template<typename Class, typename C, typename D>
-void def_field(Class &c, D C::*pm, const std::string &py_var)
-{
-	c.def_readwrite(py_var.c_str(), pm);
-}
-
-template<typename Class, typename C, typename D>
-void def_field(Class &c, const D C::*pm, const std::string &py_var)
-{
-	c.def_readonly(py_var.c_str(), pm);
-}
-
-template<typename Class, typename C, typename D>
-void def_static_field(Class &c, D C::*pm, const std::string &py_var)
-{
-	c.def_readwrite_static(py_var.c_str(), pm);
-}
-
-template<typename Class, typename C, typename D>
-void def_static_field(Class &c, const D C::*pm, const std::string &py_var)
-{
-	c.def_readonly_static(py_var.c_str(), pm);
-}
-
-
 std::string MethodCode(const std::string &cls_defined,
 	const std::string &py_method,
 	const std::string &params_str,
 	const std::string &cls_method)
 {
-	const char *code = R"(%s.def("%s", overload_cast<%s>(&%s));)";
+	const char *code = R"(%s.def("%s", overload_cast2<%s>::instance(&%s));)";
 	
 	return string_format(code, cls_defined.c_str(), py_method.c_str(), params_str.c_str(), cls_method.c_str());
 }
@@ -61,7 +36,7 @@ std::string StaticMethodCode(const std::string &cls_defined,
 	const std::string &params_str,
 	const std::string &cls_method)
 {
-	const char *code = R"(%s.def_static("%s", overload_cast<%s>(&%s));)";
+	const char *code = R"(%s.def_static("%s", overload_cast2<%s>::instance(&%s));)";
 
 	return string_format(code, cls_defined.c_str(), py_method.c_str(), params_str.c_str(), cls_method.c_str());
 }
@@ -78,21 +53,16 @@ std::string StaticFieldCode(const std::string &cls_defined,
 	const std::string &py_var,
 	const std::string &cls_var)
 {
+	//bug: ODR
 	const char *code = R"(def_static_field(%s, &%s, "%s");)";
 	return string_format(code, cls_defined.c_str(), cls_var.c_str(), py_var.c_str());
 }
 
 
-//struct GenerateConstruct {};
-//struct GenerateMethod {};
-//struct GenerateStaticMethod {};
-//struct GenerateVariable {};
 
 /**
  * write to travel NameSpaceData
  */
-
-
 
 template<typename Data>
 struct AssistData
@@ -196,8 +166,8 @@ std::string GenerateCode::Travel(AssistData<NameSpaceInfo> &current, const Assis
 		for (auto &iter: current._data->derived()->classes)
 		{
 			out << indent_block.str() << "{\n";
-			out << indent_block.str() << indent << string_format(class_defined, iter.name.c_str(), mod.c_str(), iter.name.c_str()) << "\n";
-			AssistData<ClassInfo> cls{ &iter, "c", current.level + 1 };
+			out << indent_block.str() << indent << string_format(class_defined, iter.second->name.c_str(), mod.c_str(), iter.second->name.c_str()) << "\n";
+			AssistData<ClassInfo> cls{ iter.second.get(), "c", current.level + 1 };
 			out << Travel(cls, current);
 			out << indent_block.str() << "}\n";
 		}
@@ -217,6 +187,7 @@ std::string GenerateCode::Travel(AssistData<NameSpaceInfo> &current, const Assis
 		{
 			out << indent_block.str() << "{\n";
 			auto sub_module = mod + "_sub";
+			out << indent_block.str() << indent << string_format("using namespace %s;\n", iter.second->name.c_str());
 			out << indent_block.str() << indent << string_format(sub_mod_defined, sub_module.c_str(), mod.c_str(), iter.second->name.c_str()) << "\n";
 			AssistData<NameSpaceInfo> ns{ iter.second.get(), sub_module, current.level + 1 };
 			out << Travel(ns, current);
@@ -278,6 +249,10 @@ std::string GenerateCode::Travel(AssistData<CXXMethodInfo> &current, const Assis
 		}
 		else
 		{
+			if (current._data->derived()->is_const)
+			{
+				cls_method.append(", py::const_");
+			}
 			out << MethodCode(cls_defined, py_method, params_str.str(), cls_method);
 		}
 	}
@@ -297,6 +272,9 @@ static std::string Travel(NameSpaceInfo *ns)
 	std::ostringstream out;
 	out << "{\n";
 	out << indent << "namespace py = pybind11;\n";
+	out << indent << "using py::overload_cast2;\n";
+	out << indent << "using py::external::def_field;\n";
+	out << indent << "using py::external::def_static_field;\n";
 	AssistData<NameSpaceInfo> root{ ns, "m", 1 };
 	AssistData<NameSpaceInfo> parent{ nullptr, "", 0 };
 	out << generate_code.Travel(root, parent);
@@ -309,7 +287,7 @@ std::string printExtensionCode(NameSpaceInfo *ns, const std::string &py_mod)
 {
 	auto mod_defined = R"(PYBIND11_MODULE(%s, %s))";
 	std::ostringstream out;
-	out << string_format(mod_defined, py_mod.c_str(), "m") << "\n";
+	out << string_format(mod_defined, py_mod.c_str(), "m").c_str() << "\n";
 	out << Travel(ns);
 	return out.str();
 }

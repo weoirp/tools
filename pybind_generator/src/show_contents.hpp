@@ -29,7 +29,7 @@ std::string ShowContents<NameSpaceInfo>::Print(int level)
 
 	for (const auto &iter: data->classes)
 	{
-		auto c = ShowContents<ClassInfo>{ &iter, indent };
+		auto c = ShowContents<ClassInfo>{ iter.second.get(), indent };
 		out << c.Print(level + 1) << "\n";
 	}
 	for (const auto &iter: data->functions)
@@ -39,12 +39,12 @@ std::string ShowContents<NameSpaceInfo>::Print(int level)
 	}
 	for (const auto &iter: data->enumerates)
 	{
-		auto e = ShowContents<EnumInfo>{ &iter, indent };
+		auto e = ShowContents<EnumInfo>{ iter.second.get(), indent };
 		out << e.Print(level + 1) << "\n";
 	}
 	for (const auto &iter: data->variables)
 	{
-		auto v = ShowContents<VariableInfo>{ &iter, indent };
+		auto v = ShowContents<VariableInfo>{ iter.second.get(), indent };
 		out << v.Print(level + 1) << "\n";
 	}
 	for (const auto &iter: data->inner_namespaces)

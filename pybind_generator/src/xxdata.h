@@ -115,11 +115,14 @@ struct ClassInfo: XXInfo<ClassInfo>
 struct NameSpaceInfo: XXInfo<NameSpaceInfo>
 {
 	using XXInfo::XXInfo;
+	using VariablePtr = std::unique_ptr<VariableInfo>;
+	using EnumInfoPtr = std::unique_ptr<EnumInfo>;
+	using ClassInfoPtr = std::unique_ptr<ClassInfo>;
 	using NameSpaceInfoPtr = std::unique_ptr<NameSpaceInfo>;
 
-	std::vector<VariableInfo> variables{ };
+	std::unordered_map<std::string, VariablePtr> variables{ };
 	std::vector<FunctionInfo> functions{ };
-	std::vector<EnumInfo> enumerates{ };
-	std::vector<ClassInfo> classes{ };
+	std::unordered_map<std::string, EnumInfoPtr> enumerates{ };
+	std::unordered_map<std::string, ClassInfoPtr> classes{ };
 	std::unordered_map<std::string, NameSpaceInfoPtr> inner_namespaces{ };
 };

@@ -321,18 +321,26 @@ CXChildVisitResult DataVisitor<NameSpaceInfo>::Travel(CXCursor cursor, CXCursor 
 	case CXCursor_StructDecl:
 	case CXCursor_ClassDecl:
 	{
-		data->classes.emplace_back(ClassInfo(name));
-		auto size = data->classes.size();
-		auto child = ClientData<ClassInfo>{ c->_TU, &(data->classes[size - 1]) };
+		if (data->classes.find(name) == data->classes.end())
+		{
+			data->classes.emplace(
+				name, std::unique_ptr<ClassInfo>(new ClassInfo(name))
+			);
+		}
+		auto child = ClientData<ClassInfo>{ c->_TU, data->classes[name].get() };
 		child.Travel(cursor);
 		break;
 	}
 	case CXCursor_EnumDecl:
 	case CXCursor_EnumConstantDecl:
 	{
-		data->enumerates.emplace_back(EnumInfo(name));
-		auto size = data->enumerates.size();
-		auto child = ClientData<EnumInfo>{ c->_TU, &(data->enumerates[size - 1]) };
+		if (data->enumerates.find(name) == data->enumerates.end())
+		{
+			data->enumerates.emplace(
+				name, std::unique_ptr<EnumInfo>(new EnumInfo(name))
+			);
+		}
+		auto child = ClientData<EnumInfo>{ c->_TU, data->enumerates[name].get() };
 		child.Travel(cursor);
 		break;
 	}
@@ -340,9 +348,13 @@ CXChildVisitResult DataVisitor<NameSpaceInfo>::Travel(CXCursor cursor, CXCursor 
 		break;
 	case CXCursor_VarDecl:
 	{
-		data->variables.emplace_back(VariableInfo(name));
-		auto size = data->variables.size();
-		auto child = ClientData<VariableInfo>{ c->_TU, &(data->variables[size - 1]) };
+		if (data->variables.find(name) == data->variables.end())
+		{
+			data->variables.emplace(
+				name, std::unique_ptr<VariableInfo>(new VariableInfo(name))
+			);
+		}
+		auto child = ClientData<VariableInfo>{ c->_TU, data->variables[name].get() };
 		child.Travel(cursor);
 		break;
 	}
@@ -366,15 +378,19 @@ CXChildVisitResult DataVisitor<NameSpaceInfo>::Travel(CXCursor cursor, CXCursor 
 }
 
 
-std::unique_ptr<NameSpaceInfo> Visitor(int argc, char *argv[])
+std::unique_ptr<NameSpaceInfo> Visitor(int argc, const char *argv[])
 {
 	auto index = std::unique_ptr<void, decltype(&clang_disposeIndex)>{
 		clang_createIndex(0, 0),
 		clang_disposeIndex
 	};
 
+	//std::vector<const char *> arguments(&argv[0], &argv[argc]);
 
-	//CXTranslationUnit_DetailedPreprocessingRecord  //ºêÏà¹ØµÄ
+	//arguments.push_back("temp.hpp");
+	//arguments.push_back("-xc++");
+	//arguments.push_back("-I../../src");
+
 
 	auto flag = CXTranslationUnit_SkipFunctionBodies |
 		CXTranslationUnit_DetailedPreprocessingRecord |
@@ -385,7 +401,10 @@ std::unique_ptr<NameSpaceInfo> Visitor(int argc, char *argv[])
 
 	auto unit = std::unique_ptr<std::remove_pointer<CXTranslationUnit>::type,
 		decltype(&clang_disposeTranslationUnit)>{
-		clang_parseTranslationUnit(index.get(), nullptr, argv, argc, nullptr, 0, flag),
+		clang_parseTranslationUnit(index.get(), nullptr, 
+		argv,
+		argc,
+		nullptr, 0, flag),
 		clang_disposeTranslationUnit
 	};
 
