@@ -6,11 +6,11 @@
 template<typename... Args>
 std::string string_format(const char *fmt, const Args&... args)
 {
-	int len = std::snprintf(nullptr, 0, fmt, args...) + 1;
+	int len = std::snprintf(nullptr, 0, fmt, args...);
 
 	std::string result;
 	result.resize(len);
-	std::snprintf(const_cast<char *>(result.data()), len, fmt, args...);
+	std::snprintf(const_cast<char *>(result.data()), len+1, fmt, args...);
 	return result;
 }
 
